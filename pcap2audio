@@ -1,0 +1,109 @@
+#!/bin/sh
+
+#
+# pcap to audio file converter
+#
+# https://github.com/sp4rkie/pcap2audio
+#
+
+cat > $0_$$.awk << !
+
+func setup( \
+    )
+{
+    CLARGS = "$0|$1|$2|$3|$4|$5|$6|$7|$8|$9|${10}|${11}|${12}|${13}|${14}|${15}|${16}|${17}|${18}|${19}|${20}"
+
+    # avoid dangling include files. incore inode still exists
+    system("rm $0_$$.awk")
+
+    # take care of shell expansion (if security is an issue)
+    setup_lib($#, "awk|" CLARGS, $$, "`pwd`", "`cat /etc/hostname`", "$R_")
+    PRP(CLARGS "\n")
+
+    CAPFILE = "trace.eth4.32"
+
+
+}
+
+func convert( \
+    CMD, line, i, a)
+{
+    CMD = "tshark -n -r " CAPFILE " -Y rtp -T fields -e udp.srcport -e udp.dstport"
+    while (CMD | getline > 0) {
+        ++FORW[\$1 " " \$2]
+    }
+    for (i in FORW) {
+        split(i, a)
+        PR(i " => " FORW[i] " | " FORW[a[2] " " a[1]])
+        CMD = "tshark -n -r " CAPFILE " -Y \"udp.srcport == " a[1] " && udp.dstport == " a[2] "\" -T fields -e rtp.payload"
+        CMD1 = "xxd -r -p | sox -t al -r 8000 -c 1 - " "/tmp/xxx" a[1] a[2] ".wav"
+        PR(CMD)
+        PR(CMD1)
+        while (CMD | getline line > 0) {
+            print gensub(":", "", "g", line) | CMD1
+        }
+        close(CMD)
+        close(CMD1)
+    }
+}
+
+func usage( \
+    locked, line, a)
+{
+    PR("Usage: " PRGBNAME)
+    while ((line = ex_line("cat " PRGNAME)) != -1) {
+        if (locked) {
+            if (match(line, "match[^,]+, \"(.+)\"[^\"]+# (.*)$", a)) {
+                PR(sprintf("  %-21s - %s", gensub("\\\\$", "", "g", a[1]), a[2]))
+            }
+        } else {
+            if (match(line, "^func process_cmdline")) ++locked
+        }
+    }
+}
+
+func process_cmdline( \
+    i, a)
+{
+    #
+    # regexps for arg matching are kept somewhat sloppy to avoid clutter in usage() text output
+    #
+    for (i = 2; i < _ARGC; ++i) {
+        if (match(_ARGV[i] _ARGV[i + 1], "-h$")) { # print this help and exit
+            usage()
+            exit
+        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-f [0-9]+(:[0-9]+)*$")) { # specify downstream
+            freq_list = _ARGV[i + 1]
+            ++i
+        } else if (match(_ARGV[i], "-f$")) { # force scan 
+            freq_list = "force_new_scan"
+        } else if (match(_ARGV[i], "-v$")) { # increase logging verbosity
+            ++verbose
+        } else {
+            usage()
+            ++ERR; exit
+        }
+    }
+    convert()
+}
+
+BEGIN {
+    QUIET = 1
+    setup()
+    process_cmdline()
+    exit
+}
+
+END { 
+    cleanup()
+    PRP("\n" PRGBNAME " " "exits with: " (ERR ? ERR : 0) " " "error(s)")
+    PRP("====== [" sprintf(" %5d ", PROCINFO["pid"]) "] program stop  [" strftime() "] on " HOSTNAME " ======")
+    close(PROTOCOL)
+    exit ERR
+}
+
+!
+
+[ -t 0 ] && STDIN="< /dev/null"
+eval exec awk -f $0.awklib -f $0_$$.awk $STDIN 2>&1
+
