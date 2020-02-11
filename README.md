@@ -12,6 +12,8 @@ what is it
 software installation
 ---------------------
 
+- some prerequisites
+
         sudo apt install gawk tshark sox wget xxd
 
 - download the tool
