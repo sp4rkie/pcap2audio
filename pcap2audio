@@ -20,30 +20,54 @@ func setup( \
     setup_lib($#, "awk|" CLARGS, $$, "`pwd`", "`cat /etc/hostname`", "$R_")
     PRP(CLARGS "\n")
 
-    CAPFILE = "trace.eth4.32"
-
-
 }
 
-func convert( \
-    CMD, line, i, a)
+func single_track(srcp, dstp, fname, \
+    CMD, CMD1, line)
 {
-    CMD = "tshark -n -r " CAPFILE " -Y rtp -T fields -e udp.srcport -e udp.dstport"
-    while (CMD | getline > 0) {
-        ++FORW[\$1 " " \$2]
+    CMD = "tshark -n -r " pcap_file " -Y \"udp.srcport == " srcp " && udp.dstport == " dstp "\" -T fields -e rtp.payload"
+    CMD1 = "xxd -r -p | sox -t al -r 8000 -c 1 - " fname
+PR("CMD: " CMD)
+PR("CMD: " CMD1)
+    while (CMD | getline line > 0) {
+        print gensub(":", "", "g", line) | CMD1
+    }
+    close(CMD)
+    close(CMD1)
+}
+
+func pcap2audio( \
+    fname_pfx, FORW, BACK, CMD, line, i, a)
+{
+    CMD = "tshark -n -r " pcap_file " -Y rtp -T fields -e udp.srcport -e udp.dstport"
+    while ((line = ex_line(CMD)) != -1) {
+        if (match(line, "^tshark:")) {
+            exit_(line)
+        }
+        split(line, a)
+        if (FORW[a[2] " " a[1]]) {
+            ++BACK[a[2] " " a[1]]
+        } else {
+            ++FORW[a[1] " " a[2]]
+        }
     }
     for (i in FORW) {
+        if (!FORW[i]) continue
         split(i, a)
-        PR(i " => " FORW[i] " | " FORW[a[2] " " a[1]])
-        CMD = "tshark -n -r " CAPFILE " -Y \"udp.srcport == " a[1] " && udp.dstport == " a[2] "\" -T fields -e rtp.payload"
-        CMD1 = "xxd -r -p | sox -t al -r 8000 -c 1 - " "/tmp/xxx" a[1] a[2] ".wav"
-        PR(CMD)
-        PR(CMD1)
-        while (CMD | getline line > 0) {
-            print gensub(":", "", "g", line) | CMD1
+PR(i "/" FORW[i] "/" BACK[i] "/")
+        fname_pfx = "/tmp/" PRGBNAME "_" a[1] "_" a[2]
+PR("forward:")
+        single_track(a[1], a[2], fname_pfx "_f.wav")
+        # generate the reversed direction too if applicable
+        if (BACK[a[1] " " a[2]]) {
+PR("reverse:")
+            single_track(a[2], a[1], fname_pfx "_r.wav")
+PR("merge:")
+            CMD = "sox --combine merge " fname_pfx "_f.wav" " " fname_pfx "_r.wav" " " fname_pfx "_m.wav"
+            ex(CMD, 3)
+        } else {
+PR("reverse direction not avail")
         }
-        close(CMD)
-        close(CMD1)
     }
 }
 
@@ -72,11 +96,9 @@ func process_cmdline( \
         if (match(_ARGV[i] _ARGV[i + 1], "-h$")) { # print this help and exit
             usage()
             exit
-        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-f [0-9]+(:[0-9]+)*$")) { # specify downstream
-            freq_list = _ARGV[i + 1]
+        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-f (.+)$")) { # pcap input file
+            pcap_file = _ARGV[i + 1]
             ++i
-        } else if (match(_ARGV[i], "-f$")) { # force scan 
-            freq_list = "force_new_scan"
         } else if (match(_ARGV[i], "-v$")) { # increase logging verbosity
             ++verbose
         } else {
@@ -84,7 +106,10 @@ func process_cmdline( \
             ++ERR; exit
         }
     }
-    convert()
+    if (!pcap_file) {
+        exit_("no pcap input file given")
+    }
+    pcap2audio()
 }
 
 BEGIN {
