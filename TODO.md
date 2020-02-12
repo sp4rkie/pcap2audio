@@ -1,0 +1,3 @@
+- ~~filename with corresponding timestamps~~
+- ~~make more robust against err msgs of tshark~~
+- ~~cleanup screen output~~

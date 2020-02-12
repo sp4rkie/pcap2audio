@@ -19,13 +19,13 @@ func setup( \
     # take care of shell expansion (if security is an issue)
     setup_lib($#, "awk|" CLARGS, $$, "`pwd`", "`cat /etc/hostname`", "$R_")
     PRP(CLARGS "\n")
-
 }
 
 func single_track(srcp, dstp, fname, \
     CMD, CMD1, line)
 {
-    CMD = "tshark -n -r " pcap_file " -Y \"udp.srcport == " srcp " && udp.dstport == " dstp "\" -T fields -e rtp.payload"
+    # ignore things like tshark: The file ... appears to have been cut short in the middle of a packet.
+    CMD = "tshark -n -r " pcap_file " -Y \"udp.srcport == " srcp " && udp.dstport == " dstp "\" -T fields -e rtp.payload" " 2> /dev/null"
     CMD1 = "xxd -r -p | sox -t al -r 8000 -c 1 - " fname
 PR("CMD: " CMD)
 PR("CMD: " CMD1)
@@ -37,34 +37,48 @@ PR("CMD: " CMD1)
 }
 
 func pcap2audio( \
-    fname_pfx, FORW, BACK, CMD, line, i, a)
+    cnt, CMD, line, i, a)
 {
-    CMD = "tshark -n -r " pcap_file " -Y rtp -T fields -e udp.srcport -e udp.dstport"
+    CMD = "tshark -n -r " pcap_file " -Y rtp -T fields -e _ws.col.Time -e udp.srcport -e udp.dstport"
+PR("calls:")
     while ((line = ex_line(CMD)) != -1) {
-        if (match(line, "^tshark:")) {
-            exit_(line)
+        if (split(line, a) != 4 \
+         || !match(line, "^[0-9:.\t -]+$")) {
+            if (line) PR(line)
+            continue
+#            exit_(line)
         }
-        split(line, a)
-        if (FORW[a[2] " " a[1]]) {
-            ++BACK[a[2] " " a[1]]
+        if (FORW[a[4] " " a[3]]) {
+            if (!BACK[a[4] " " a[3]]) {
+                BACKT[a[4] " " a[3]] = a[1] " " a[2]
+PR("reverse: " a[1] " " a[2] " " a[3] " " a[4])
+            }
+            ++BACK[a[4] " " a[3]]
         } else {
-            ++FORW[a[1] " " a[2]]
+            if (!FORW[a[3] " " a[4]]) {
+                FORWT[a[3] " " a[4]] = a[1] " " a[2]
+                FORWS[cnt++] = a[3] " " a[4]
+PRF("forward: " a[1] " " a[2] " " a[3] " " a[4] " ")
+            }
+            ++FORW[a[3] " " a[4]]
         }
     }
-    for (i in FORW) {
-        if (!FORW[i]) continue
-        split(i, a)
-PR(i "/" FORW[i] "/" BACK[i] "/")
-        fname_pfx = "/tmp/" PRGBNAME "_" a[1] "_" a[2]
-PR("forward:")
+PR("\nextracting audio:")
+    for (i = 0; i < cnt; ++i) {
+        PR("\n" i " -> " FORWS[i] " " FORWT[FORWS[i]] " [ " FORW[FORWS[i]] " ] " BACKT[FORWS[i]] " [ " BACK[FORWS[i]] " ]")
+        split(FORWS[i], a)
+        fname_pfx = "/tmp/" PRGBNAME "_" gensub(" ", "_", "g", FORWT[FORWS[i]])
+        fname_pfx = gensub("\\\.[^.]+$", "", "g", fname_pfx)
+PR("forward direction:")
         single_track(a[1], a[2], fname_pfx "_f.wav")
         # generate the reversed direction too if applicable
         if (BACK[a[1] " " a[2]]) {
-PR("reverse:")
+PR("reverse direction:")
             single_track(a[2], a[1], fname_pfx "_r.wav")
-PR("merge:")
+PR("merge forward reverse:")
             CMD = "sox --combine merge " fname_pfx "_f.wav" " " fname_pfx "_r.wav" " " fname_pfx "_m.wav"
             ex(CMD, 3)
+            ex("rm " fname_pfx "_f.wav" " " fname_pfx "_r.wav", 3)
         } else {
 PR("reverse direction not avail")
         }
