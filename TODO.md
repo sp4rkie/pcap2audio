@@ -5,3 +5,4 @@
 - multi stream support
 - dest dir cfgable
 - mode to only print the available calls and exit
+- impr output if input file missing 

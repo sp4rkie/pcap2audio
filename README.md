@@ -7,7 +7,7 @@ what is it
 - a CLI tool to extract conversation audio from VoIP calls by means of RTP packets residing in pcap files
 - the retrieved audio is suitable for playing it with your favorite audio editor (e.g. audacity)
 - the program tries to extract all available audio data based on encountered RTP packets
-- it will look for associated streams (forward and reversed direction) and mixes them to one single file
+- it will look for associated streams (forward and reversed direction) and mixes them into one single file
 - generated file names are composed of the starting date of the call for easier identification
 - works for PCMA only at the time of this writing
 
@@ -31,7 +31,7 @@ how to use it
         
         tcpdump -i eth4 port sip or portrange 14362-14462 -B 4096 -n -c 200000 -w trace.eth4
 
-- to execute the program simply type
+- to execute the program simply type (for the example above):
 
         pcap2audio -f trace.eth4
 

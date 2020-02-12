@@ -77,7 +77,8 @@ PR("\n" i " -> " FORWS[i] " " FORWT[FORWS[i]] " [ " FORW[FORWS[i]] " ] " BACKT[F
             single_track(a[2], a[1], fname_pfx "_r.wav")
 #PR("merge forward reverse:")
             CMD = "sox --combine merge " fname_pfx "_f.wav" " " fname_pfx "_r.wav" " " fname_pfx "_m.wav"
-            ex(CMD, 3)
+PR(fname_pfx "_m.wav")
+            ex(CMD, 0)
             ex("rm " fname_pfx "_f.wav" " " fname_pfx "_r.wav", 0)
         } else {
 PR("reverse direction not avail")
