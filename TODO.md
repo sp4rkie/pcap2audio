@@ -1,3 +1,7 @@
 - ~~filename with corresponding timestamps~~
 - ~~make more robust against err msgs of tshark~~
 - ~~cleanup screen output~~
+- more codecs
+- multi stream support
+- dest dir cfgable
+- mode to only print the available calls and exit

@@ -4,9 +4,11 @@ pcap2audio
 what is it
 ----------
 
-- a small tool to extract audio from pcap files suitable for playing it with your favorite audio editor (e.g. audacity)
-- the programm tries to extract all audio data from RTP pakets
-- it will look for associated audio tracks (forward and reversed direction) and mixes them to one single file
+- a CLI tool to extract conversation audio from VoIP calls by means of RTP packets residing in pcap files
+- the retrieved audio is suitable for playing it with your favorite audio editor (e.g. audacity)
+- the program tries to extract all available audio data based on encountered RTP packets
+- it will look for associated streams (forward and reversed direction) and mixes them to one single file
+- generated file names are composed of the starting date of the call for easier identification
 - works for PCMA only at the time of this writing
 
 software installation
@@ -14,7 +16,7 @@ software installation
 
 - some prerequisites
 
-        sudo apt install gawk tshark sox wget xxd
+        sudo apt install gawk tshark sox xxd wget
 
 - download the tool
 
@@ -25,7 +27,7 @@ software installation
 how to use it
 -------------
 
-- record some VoIP call with your favorite sniffer. E.g. 
+- record some VoIP call with your favorite packet sniffing tool. Example using tcpdump for this:
         
         tcpdump -i eth4 port sip or portrange 14362-14462 -B 4096 -n -c 200000 -w trace.eth4
 

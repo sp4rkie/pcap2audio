@@ -27,8 +27,8 @@ func single_track(srcp, dstp, fname, \
     # ignore things like tshark: The file ... appears to have been cut short in the middle of a packet.
     CMD = "tshark -n -r " pcap_file " -Y \"udp.srcport == " srcp " && udp.dstport == " dstp "\" -T fields -e rtp.payload" " 2> /dev/null"
     CMD1 = "xxd -r -p | sox -t al -r 8000 -c 1 - " fname
-PR("CMD: " CMD)
-PR("CMD: " CMD1)
+#PR("CMD: " CMD)
+#PR("CMD: " CMD1)
     while (CMD | getline line > 0) {
         print gensub(":", "", "g", line) | CMD1
     }
@@ -65,20 +65,20 @@ PRF("forward: " a[1] " " a[2] " " a[3] " " a[4] " ")
     }
 PR("\nextracting audio:")
     for (i = 0; i < cnt; ++i) {
-        PR("\n" i " -> " FORWS[i] " " FORWT[FORWS[i]] " [ " FORW[FORWS[i]] " ] " BACKT[FORWS[i]] " [ " BACK[FORWS[i]] " ]")
+PR("\n" i " -> " FORWS[i] " " FORWT[FORWS[i]] " [ " FORW[FORWS[i]] " ] " BACKT[FORWS[i]] " [ " BACK[FORWS[i]] " ]")
         split(FORWS[i], a)
         fname_pfx = "/tmp/" PRGBNAME "_" gensub(" ", "_", "g", FORWT[FORWS[i]])
         fname_pfx = gensub("\\\.[^.]+$", "", "g", fname_pfx)
-PR("forward direction:")
+#PR("forward direction:")
         single_track(a[1], a[2], fname_pfx "_f.wav")
         # generate the reversed direction too if applicable
         if (BACK[a[1] " " a[2]]) {
-PR("reverse direction:")
+#PR("reverse direction:")
             single_track(a[2], a[1], fname_pfx "_r.wav")
-PR("merge forward reverse:")
+#PR("merge forward reverse:")
             CMD = "sox --combine merge " fname_pfx "_f.wav" " " fname_pfx "_r.wav" " " fname_pfx "_m.wav"
             ex(CMD, 3)
-            ex("rm " fname_pfx "_f.wav" " " fname_pfx "_r.wav", 3)
+            ex("rm " fname_pfx "_f.wav" " " fname_pfx "_r.wav", 0)
         } else {
 PR("reverse direction not avail")
         }
