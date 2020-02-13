@@ -1,8 +1,8 @@
 - ~~filename with corresponding timestamps~~
 - ~~make more robust against err msgs of tshark~~
 - ~~cleanup screen output~~
-- more codecs
+- ~~improve behavior if only one audio direction exists~~
+- support more codecs
 - multi stream support
 - dest dir cfgable
-- mode to only print the available calls and exit
-- impr output if input file missing 
+- ~~skip processing conversations with audio already extracted~~

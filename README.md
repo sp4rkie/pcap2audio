@@ -36,7 +36,7 @@ how to use it
         pcap2audio -f trace.eth4
 
 - this extracts audio in forward and reversed direction (if existent) and mixes both 
-- all results currently end up in /tmp directory.
+- all results currently end up in `/tmp` directory.
 
 - command line options
 

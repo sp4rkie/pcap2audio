@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #
-# pcap to audio file converter
+# CLI tool to extract conversation audio from pcap files
 #
 # https://github.com/sp4rkie/pcap2audio
 #
@@ -39,18 +39,19 @@ func single_track(srcp, dstp, fname, \
 func pcap2audio( \
     cnt, CMD, line, i, a)
 {
+    prev_complete = 1
     CMD = "tshark -n -r " pcap_file " -Y rtp -T fields -e _ws.col.Time -e udp.srcport -e udp.dstport"
-PR("calls:")
+PR("skimming calls:")
     while ((line = ex_line(CMD)) != -1) {
         if (split(line, a) != 4 \
          || !match(line, "^[0-9:.\t -]+$")) {
             if (line) PR(line)
             continue
-#            exit_(line)
         }
         if (FORW[a[4] " " a[3]]) {
             if (!BACK[a[4] " " a[3]]) {
                 BACKT[a[4] " " a[3]] = a[1] " " a[2]
+                ++prev_complete
 PR("reverse: " a[1] " " a[2] " " a[3] " " a[4])
             }
             ++BACK[a[4] " " a[3]]
@@ -58,6 +59,10 @@ PR("reverse: " a[1] " " a[2] " " a[3] " " a[4])
             if (!FORW[a[3] " " a[4]]) {
                 FORWT[a[3] " " a[4]] = a[1] " " a[2]
                 FORWS[cnt++] = a[3] " " a[4]
+                if (!prev_complete) {
+                    PR("reverse: " "[ no data ]")
+                }
+                prev_complete = 0
 PRF("forward: " a[1] " " a[2] " " a[3] " " a[4] " ")
             }
             ++FORW[a[3] " " a[4]]
@@ -69,6 +74,11 @@ PR("\n" i " -> " FORWS[i] " " FORWT[FORWS[i]] " [ " FORW[FORWS[i]] " ] " BACKT[F
         split(FORWS[i], a)
         fname_pfx = "/tmp/" PRGBNAME "_" gensub(" ", "_", "g", FORWT[FORWS[i]])
         fname_pfx = gensub("\\\.[^.]+$", "", "g", fname_pfx)
+        if (ex("ls " fname_pfx "_m.wav", 0, "^(" fname_pfx "_m.wav" ")$")) {
+            PR(fname_pfx "_m.wav")
+            PR("already exists, skipping")
+            continue
+        }
 #PR("forward direction:")
         single_track(a[1], a[2], fname_pfx "_f.wav")
         # generate the reversed direction too if applicable
@@ -81,6 +91,7 @@ PR(fname_pfx "_m.wav")
             ex(CMD, 0)
             ex("rm " fname_pfx "_f.wav" " " fname_pfx "_r.wav", 0)
         } else {
+PR(fname_pfx "_f.wav")
 PR("reverse direction not avail")
         }
     }
@@ -123,6 +134,9 @@ func process_cmdline( \
     }
     if (!pcap_file) {
         exit_("no pcap input file given")
+    }
+    if (!ex("ls " pcap_file, 0, "^(" pcap_file ")$")) {
+        exit_("pcap input file does not exist")
     }
     pcap2audio()
 }
