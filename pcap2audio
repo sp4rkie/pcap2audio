@@ -39,7 +39,6 @@ func single_track(srcp, dstp, fname, \
 func pcap2audio( \
     cnt, CMD, line, i, a)
 {
-    prev_complete = 1
     CMD = "tshark -n -r " pcap_file " -Y rtp -T fields -e _ws.col.Time -e udp.srcport -e udp.dstport"
 PR("skimming calls:")
     while ((line = ex_line(CMD)) != -1) {
@@ -48,10 +47,10 @@ PR("skimming calls:")
             if (line) PR(line)
             continue
         }
+#PR("<" line ">")
         if (FORW[a[4] " " a[3]]) {
             if (!BACK[a[4] " " a[3]]) {
                 BACKT[a[4] " " a[3]] = a[1] " " a[2]
-                ++prev_complete
 PR("reverse: " a[1] " " a[2] " " a[3] " " a[4])
             }
             ++BACK[a[4] " " a[3]]
@@ -59,40 +58,46 @@ PR("reverse: " a[1] " " a[2] " " a[3] " " a[4])
             if (!FORW[a[3] " " a[4]]) {
                 FORWT[a[3] " " a[4]] = a[1] " " a[2]
                 FORWS[cnt++] = a[3] " " a[4]
-                if (!prev_complete) {
-                    PR("reverse: " "[ no data ]")
-                }
-                prev_complete = 0
-PRF("forward: " a[1] " " a[2] " " a[3] " " a[4] " ")
+PR("forward: " a[1] " " a[2] " " a[3] " " a[4] " ")
             }
             ++FORW[a[3] " " a[4]]
         }
     }
 PR("\nextracting audio:")
     for (i = 0; i < cnt; ++i) {
-PR("\n" i " -> " FORWS[i] " " FORWT[FORWS[i]] " [ " FORW[FORWS[i]] " ] " BACKT[FORWS[i]] " [ " BACK[FORWS[i]] " ]")
+PR("\n" i " -> " FORWS[i] " " FORWT[FORWS[i]] " [ " FORW[FORWS[i]] " ] " (BACK[FORWS[i]] ? BACKT[FORWS[i]] " [ " BACK[FORWS[i]] " ]" : "[ rev data not avail ]"))
         split(FORWS[i], a)
-        fname_pfx = "/tmp/" PRGBNAME "_" gensub(" ", "_", "g", FORWT[FORWS[i]])
-        fname_pfx = gensub("\\\.[^.]+$", "", "g", fname_pfx)
-        if (ex("ls " fname_pfx "_m.wav", 0, "^(" fname_pfx "_m.wav" ")$")) {
-            PR(fname_pfx "_m.wav")
-            PR("already exists, skipping")
-            continue
+        fname_pfx = "/tmp/" "p2a" "_" gensub(" ", "_", "g", FORWT[FORWS[i]] " " FORWS[i])
+        fname_f = fname_pfx "_f.wav"
+        fname_r = fname_pfx "_r.wav"
+        fname_m = fname_pfx "_m.wav"
+        if (BACK[a[1] " " a[2]]) {
+            if (ex("ls " fname_m, 0, "^(" fname_m ")$")) {
+                PRF(fname_m)
+                PR(" already exists, skipping")
+                continue
+            }
+        } else {
+            # if no reverse direction exists _f is sufficient
+            if (ex("ls " fname_f, 0, "^(" fname_f ")$")) {
+                PRF(fname_f)
+                PR(" already exists, skipping")
+                continue
+            }
         }
 #PR("forward direction:")
-        single_track(a[1], a[2], fname_pfx "_f.wav")
+        single_track(a[1], a[2], fname_f)
         # generate the reversed direction too if applicable
         if (BACK[a[1] " " a[2]]) {
 #PR("reverse direction:")
-            single_track(a[2], a[1], fname_pfx "_r.wav")
+            single_track(a[2], a[1], fname_r)
 #PR("merge forward reverse:")
-            CMD = "sox --combine merge " fname_pfx "_f.wav" " " fname_pfx "_r.wav" " " fname_pfx "_m.wav"
-PR(fname_pfx "_m.wav")
+            CMD = "sox --combine merge " fname_f " " fname_r " " fname_m
+PR(fname_m)
             ex(CMD, 0)
-            ex("rm " fname_pfx "_f.wav" " " fname_pfx "_r.wav", 0)
+            ex("rm " fname_f " " fname_r, 0)
         } else {
-PR(fname_pfx "_f.wav")
-PR("reverse direction not avail")
+PR(fname_f)     # leave as is
         }
     }
 }
